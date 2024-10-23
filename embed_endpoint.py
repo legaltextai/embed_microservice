@@ -224,9 +224,9 @@ class EmbeddingService:
 
 
 app = FastAPI(
-    title="Inception",
+    title="Inception v2",
     description="Service for generating embeddings from queries and opinions",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 embedding_service: Optional[EmbeddingService] = None
@@ -330,8 +330,8 @@ def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
-        title="Inception",
-        version="1.0.0",
+        title="Inception v2",
+        version="2.0.0",
         description="Service for generating embeddings from queries and opinions",
         routes=app.routes,
     )

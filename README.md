@@ -1,4 +1,4 @@
-# Inception - Text Embedding Service
+# Inception v2 - Text Embedding Service
 
 A high-performance FastAPI service for generating text embeddings using SentenceTransformers, specifically designed for processing legal documents and search queries. The service efficiently handles both short search queries and lengthy court opinions, generating semantic embeddings that can be used for document similarity matching and semantic search applications. It includes support for GPU acceleration when available.
 
@@ -27,7 +27,7 @@ This project uses Poetry for dependency management. To get started:
 
 2. Clone the repository and install dependencies:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/freelawproject/inception
    cd inception
    poetry install
    ```
@@ -39,12 +39,12 @@ This project uses Poetry for dependency management. To get started:
 The easiest way to run the embedding service is using Docker:
 
 ```bash
-docker run -d -p 8005:8005 freelawproject/inception:latest
+docker run -d -p 8005:8005 freelawproject/inception:v2
 ```
 
 To handle more concurrent tasks, increase the number of workers:
 ```bash
-docker run -d -p 8005:8005 -e EMBEDDING_WORKERS=4 freelawproject/inception:latest
+docker run -d -p 8005:8005 -e EMBEDDING_WORKERS=4 freelawproject/inception:v2
 ```
 
 Test that the service is running:
