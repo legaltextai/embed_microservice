@@ -88,29 +88,42 @@ class TextRequest(BaseModel):
     id: int
     text: str = Field(
         ..., 
-        description="The text content of the opinion",
-        example="The Supreme Court's decision in Brown v. Board of Education was a landmark ruling."
+        description="The text content of the opinion"
     )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "text": "The Supreme Court's decision in Brown v. Board of Education was a landmark ruling."
+            }
+        }
 
 class BatchTextRequest(BaseModel):
     documents: List[TextRequest] = Field(
         ..., 
-        description="List of documents to process. Each document should have an ID and text content.",
-        example=[
-            {
-                "id": 1,
-                "text": """The First Amendment protects freedom of speech and religion.
+        description="List of documents to process. Each document should have an ID and text content."
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "documents": [
+                    {
+                        "id": 1,
+                        "text": """The First Amendment protects freedom of speech and religion.
 
 This fundamental right is crucial to democracy."""
-            },
-            {
-                "id": 2,
-                "text": """Marbury v. Madison (1803) established judicial review.
+                    },
+                    {
+                        "id": 2,
+                        "text": """Marbury v. Madison (1803) established judicial review.
 
 This case expanded judicial power significantly."""
+                    }
+                ]
             }
-        ]
-    )
+        }
 
 class ChunkEmbedding(BaseModel):
     chunk_number: int
