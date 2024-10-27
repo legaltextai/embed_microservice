@@ -30,3 +30,4 @@ def cleanup():
     # Clean up any test artifacts
     if os.path.exists("tests/test_data/temp"):
         shutil.rmtree("tests/test_data/temp")
+
