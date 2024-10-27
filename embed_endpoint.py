@@ -61,8 +61,17 @@ MODEL_LOAD_TIME = Histogram(
 nltk.download('punkt', quiet=True)
 
 class Settings(BaseSettings):
-    transformer_model_name: str = "sentence-transformers/all-mpnet-base-v2"
-    max_words: int = 350
+    # Add validation and documentation
+    transformer_model_name: str = Field(
+        "sentence-transformers/all-mpnet-base-v2",
+        description="Name of the transformer model to use"
+    )
+    max_words: int = Field(
+        350,
+        ge=1,
+        le=1000,
+        description="Maximum words per chunk"
+    )
     max_text_length: int = 100000  # Maximum text length in characters
     force_cpu: bool = False
     enable_metrics: bool = True
@@ -292,6 +301,10 @@ class EmbeddingService:
             logger.error(f"Error generating text embeddings: {str(e)}")
             raise
 
+    def cleanup_gpu_memory(self):
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
 
 app = FastAPI(
     title="Inception v2",
@@ -370,6 +383,12 @@ async def create_query_embedding(request: QueryRequest):
         embedding = await embedding_service.generate_query_embedding(request.text)
         PROCESSING_TIME.labels(endpoint='query').observe(time.time() - start_time)
         return QueryResponse(embedding=embedding)
+    except ValueError as e:
+        ERROR_COUNT.labels(endpoint='query', error_type='validation_error').inc()
+        raise HTTPException(status_code=422, detail=str(e))
+    except torch.cuda.OutOfMemoryError as e:
+        ERROR_COUNT.labels(endpoint='query', error_type='gpu_error').inc()
+        raise HTTPException(status_code=503, detail="GPU memory exhausted")
     except Exception as e:
         ERROR_COUNT.labels(endpoint='query', error_type='processing_error').inc()
         sentry_sdk.capture_exception(e)
@@ -512,6 +531,9 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8005) 
 
     
+
+
+
 
 
 
