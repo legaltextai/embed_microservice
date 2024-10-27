@@ -53,35 +53,32 @@ curl http://localhost:8005
 # Should return: "Heartbeat detected."
 ```
 
-### Using the Python Client
+### Using the Service
 
-The service includes a Python client for easy integration:
+You can interact with the service using any HTTP client. Here's a Python example using the `requests` library:
 
 ```python
-from examples.client_example import EmbeddingClient
+import requests
 
-# Initialize client
-client = EmbeddingClient("http://localhost:8005")
+# Initialize base URL
+base_url = "http://localhost:8005"
 
 # Get embedding for a query
-query_embedding = client.get_query_embedding("What is copyright infringement?")
+response = requests.post(
+    f"{base_url}/api/v1/embed/query",
+    json={"text": "What is copyright infringement?"}
+)
+query_embedding = response.json()["embedding"]
 
 # Get embeddings for a document
-doc_embeddings = client.get_document_embedding("The court finds that...")
-
-# Process multiple documents
-batch_results = client.get_batch_embeddings([
-    {"id": 1, "text": "First document..."},
-    {"id": 2, "text": "Second document..."}
-])
+response = requests.post(
+    f"{base_url}/api/v1/embed/text",
+    data="The court finds that..."
+)
+doc_embeddings = response.json()["embeddings"]
 ```
 
-Install client requirements:
-```bash
-pip install -r examples/requirements.txt
-```
-
-See [DEVELOPING.md](DEVELOPING.md) for more examples and detailed usage.
+For more examples and detailed API documentation, check the API endpoints section below.
 
 ## API Endpoints
 
