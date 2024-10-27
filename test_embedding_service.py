@@ -68,3 +68,4 @@ def test_service_unavailable(client, monkeypatch):
         json={"text": "test"}
     )
     assert response.status_code == 503
+
