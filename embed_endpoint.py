@@ -1,4 +1,5 @@
 import os
+import asyncio
 from typing import List, Optional
 import torch
 from sentence_transformers import SentenceTransformer, util
@@ -73,6 +74,9 @@ class Settings(BaseSettings):
         description="Maximum words per chunk"
     )
     max_text_length: int = 100000  # Maximum text length in characters
+    min_text_length: int = 1  # Minimum text length in characters
+    max_batch_size: int = 100  # Maximum number of documents in a batch
+    pool_timeout: int = 3600  # Timeout for multi-process pool operations (seconds)
     force_cpu: bool = False
     enable_metrics: bool = True
     
@@ -275,11 +279,13 @@ class EmbeddingService:
                 all_chunks.extend(chunks)
                 chunk_counts.append(len(chunks))
             
+            settings = Settings()
             embeddings = self.gpu_model.encode_multi_process(
                 sentences=all_chunks,
                 pool=self.pool,
                 batch_size=8,
-                show_progress_bar=False
+                show_progress_bar=False,
+                pool_timeout=settings.pool_timeout
             )
 
             start_index = 0
@@ -335,13 +341,26 @@ app.add_middleware(
 async def startup_event():
     """Initialize the embedding model and service on startup"""
     global embedding_service
-    try:
-        settings = Settings()
-        model = SentenceTransformer(settings.transformer_model_name)
-        embedding_service = EmbeddingService(model=model, max_words=settings.max_words)
-    except Exception as e:
-        sentry_sdk.capture_exception(e)
-        raise RuntimeError(f"Failed to initialize embedding service: {str(e)}")
+    max_retries = 3
+    retry_delay = 5  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            settings = Settings()
+            logger.info(f"Attempting to initialize embedding service (attempt {attempt + 1}/{max_retries})")
+            model = SentenceTransformer(settings.transformer_model_name)
+            embedding_service = EmbeddingService(model=model, max_words=settings.max_words)
+            logger.info("Embedding service initialized successfully")
+            return
+        except Exception as e:
+            logger.error(f"Attempt {attempt + 1}/{max_retries} failed: {str(e)}")
+            sentry_sdk.capture_exception(e)
+            if attempt < max_retries - 1:
+                logger.info(f"Retrying in {retry_delay} seconds...")
+                await asyncio.sleep(retry_delay)
+            else:
+                logger.error("All initialization attempts failed")
+                raise RuntimeError("Failed to initialize embedding service after multiple attempts")
 
 # Add new heartbeat endpoint
 @app.get("/")
@@ -406,17 +425,35 @@ async def create_text_embedding(request: Request):
 
     try:
         raw_text = await request.body()
-        text = raw_text.decode("utf-8")
+        try:
+            text = raw_text.decode("utf-8")
+        except UnicodeDecodeError:
+            ERROR_COUNT.labels(endpoint='text', error_type='decode_error').inc()
+            raise HTTPException(status_code=422, detail="Invalid UTF-8 encoding in text")
         
-        if not text.strip():
-            ERROR_COUNT.labels(endpoint='text', error_type='empty_input').inc()
-            raise ValueError("Empty text input")
+        settings = Settings()
+        text_length = len(text.strip())
+        
+        if text_length < settings.min_text_length:
+            ERROR_COUNT.labels(endpoint='text', error_type='text_too_short').inc()
+            raise HTTPException(
+                status_code=422, 
+                detail=f"Text length ({text_length}) below minimum ({settings.min_text_length})"
+            )
 
-        if len(text) > Settings().max_text_length:
+        if text_length > settings.max_text_length:
             ERROR_COUNT.labels(endpoint='text', error_type='text_too_long').inc()
-            raise ValueError(f"Text exceeds maximum length of {Settings().max_text_length} characters")
+            raise HTTPException(
+                status_code=422,
+                detail=f"Text length ({text_length}) exceeds maximum ({settings.max_text_length})"
+            )
 
         result = await embedding_service.generate_text_embeddings([text])
+        
+        # Clean up GPU memory after processing large texts
+        if text_length > settings.max_words * 10:  # Arbitrary threshold for "large" texts
+            embedding_service.cleanup_gpu_memory()
+            
         PROCESSING_TIME.labels(endpoint='text').observe(time.time() - start_time)
         return TextResponse(embeddings=result[0])
     except Exception as e:
@@ -430,12 +467,28 @@ async def create_batch_text_embeddings(request: BatchTextRequest):
     """Generate embeddings for multiple documents"""
     REQUEST_COUNT.labels(endpoint='batch').inc()
     start_time = time.time()
+    settings = Settings()
     
     if not embedding_service:
         ERROR_COUNT.labels(endpoint='batch', error_type='service_unavailable').inc()
         raise HTTPException(status_code=503, detail="Embedding service not initialized")
 
+    if len(request.documents) > settings.max_batch_size:
+        ERROR_COUNT.labels(endpoint='batch', error_type='batch_too_large').inc()
+        raise HTTPException(
+            status_code=422, 
+            detail=f"Batch size exceeds maximum of {settings.max_batch_size} documents"
+        )
+
     try:
+        # Validate all texts before processing
+        for doc in request.documents:
+            text_length = len(doc.text)
+            if text_length < settings.min_text_length:
+                raise ValueError(f"Document {doc.id}: Text length ({text_length}) below minimum ({settings.min_text_length})")
+            if text_length > settings.max_text_length:
+                raise ValueError(f"Document {doc.id}: Text length ({text_length}) exceeds maximum ({settings.max_text_length})")
+
         texts = [doc.text for doc in request.documents]
         embeddings_list = await embedding_service.generate_text_embeddings(texts)
         
@@ -443,6 +496,9 @@ async def create_batch_text_embeddings(request: BatchTextRequest):
             TextResponse(id=doc.id, embeddings=embeddings)
             for doc, embeddings in zip(request.documents, embeddings_list)
         ]
+        
+        # Clean up GPU memory after batch processing
+        embedding_service.cleanup_gpu_memory()
         
         PROCESSING_TIME.labels(endpoint='batch').observe(time.time() - start_time)
         return results
@@ -496,21 +552,6 @@ def custom_openapi():
             }
     app.openapi_schema = openapi_schema
     return app.openapi_schema
-
-def preprocess_text(text: str) -> str:
-    """
-    Preprocess text for embedding generation.
-    Includes cleaning and validation steps.
-    """
-    try:
-        cleaned_text = clean_text_for_json(text)
-        
-        if not cleaned_text:
-            raise ValueError("Text is empty after cleaning")
-        
-        return cleaned_text
-    except Exception as e:
-        raise ValueError(f"Error preprocessing text: {str(e)}")
 
 app.openapi = custom_openapi
 
