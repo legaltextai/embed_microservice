@@ -46,7 +46,20 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        poetry run pytest --cov=. --cov-report=xml --cov-report=term-missing
+        # Run non-GPU tests first
+        poetry run pytest -v -m "not gpu" --cov=. --cov-report=term-missing
+        
+        # Run health checks
+        poetry run pytest -v -m health
+        
+        # Run validation tests
+        poetry run pytest -v -m validation
+        
+        # Run text processing tests
+        poetry run pytest -v -m text_processing
+        
+        # Generate final coverage report
+        poetry run pytest --cov=. --cov-report=xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -60,5 +73,5 @@ jobs:
 
     - name: Test API startup
       run: |
-        poetry run python -c "from
+        poetry run python -c "from embed_endpoint import app, Settings; from fastapi.testclient import TestClient; client = TestClient(app); response = client.get('/health'); assert response.status_code == 200; print('API startup test passed')"
 
