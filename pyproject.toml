@@ -34,3 +34,20 @@ pytest-asyncio = "^0.21.1"  # For async test support
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --cov=. --cov-report=term-missing"
+testpaths = ["tests", "."]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "asyncio: marks tests as async",
+    "embedding: marks tests as embedding-related",
+    "health: marks tests as health check related",
+    "embedding_generation: marks tests for embedding generation",
+    "validation: marks input validation tests",
+    "gpu: marks tests requiring GPU",
+    "text_processing: marks text processing tests"
+]
