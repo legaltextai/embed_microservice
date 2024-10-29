@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from embed_endpoint import app, Settings, EmbeddingService
+from inception.inception.embed_endpoint import app, Settings, EmbeddingService
 from sentence_transformers import SentenceTransformer
 import os
 import shutil

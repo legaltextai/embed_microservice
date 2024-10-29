@@ -6,7 +6,6 @@ from sentence_transformers import SentenceTransformer, util
 from fastapi import FastAPI, HTTPException, Request, Body, Response
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
-import nltk
 from nltk.tokenize import sent_tokenize
 from fastapi.openapi.utils import get_openapi
 import re
@@ -18,6 +17,13 @@ import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 import time
 import logging
+import nltk
+
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    nltk.download('punkt')
+    nltk.download('punkt_tab')
 
 # Configure logging
 logging.basicConfig(
@@ -64,7 +70,7 @@ nltk.download('punkt', quiet=True)
 class Settings(BaseSettings):
     # Add validation and documentation
     transformer_model_name: str = Field(
-        "sentence-transformers/all-mpnet-base-v2",
+        "sentence-transformers/multi-qa-mpnet-base-dot-v1",
         description="Name of the transformer model to use"
     )
     max_words: int = Field(
@@ -238,19 +244,6 @@ class EmbeddingService:
         except Exception as e:
             logger.error(f"Error stopping model pool: {str(e)}")
 
-    async def generate_query_embedding(self, text: str) -> List[float]:
-        """Generate embedding for a single query text"""
-        if not text.strip():
-            raise ValueError("Empty query text")
-        
-        try:
-            with torch.no_grad():
-                embedding = self.model.encode(text, device='cpu')
-            return embedding.tolist()
-        except Exception as e:
-            logger.error(f"Error generating query embedding: {str(e)}")
-            raise
-
     def split_text_into_chunks(self, text: str) -> List[str]:
         """Split text into chunks based on sentences, not exceeding max_words"""
         sentences = sent_tokenize(text)
@@ -276,31 +269,53 @@ class EmbeddingService:
 
         return chunks
 
+    async def generate_query_embedding(self, text: str) -> List[float]:
+        """Generate embedding for a single query text"""
+        try:
+            # Preprocess the query text
+            processed_text = preprocess_text(text)
+            
+            # Use run_in_executor to make the synchronous encode call async
+            embedding = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: self.gpu_model.encode(
+                    sentences=[processed_text],
+                    batch_size=1
+                )
+            )
+            
+            return embedding[0].tolist()
+        except Exception as e:
+            logger.error(f"Error generating query embedding: {str(e)}")
+            raise
+
     async def generate_text_embeddings(self, texts: List[str]) -> List[List[ChunkEmbedding]]:
         """Generate embeddings for a list of texts"""
         if not texts:
             raise ValueError("Empty text list")
-            
+
         try:
             all_embeddings = []
             all_chunks = []
             chunk_counts = []
 
+            # Collect chunks
             for text in texts:
                 chunks = self.split_text_into_chunks(text)
                 CHUNK_COUNT.labels(endpoint='text').inc(len(chunks))
                 all_chunks.extend(chunks)
                 chunk_counts.append(len(chunks))
-            
-            settings = Settings()
-            embeddings = self.gpu_model.encode_multi_process(
-                sentences=all_chunks,
-                pool=self.pool,
-                batch_size=8,
-                show_progress_bar=False,
-                pool_timeout=settings.pool_timeout
+    
+            # Generate embeddings
+            embeddings = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: self.gpu_model.encode(
+                    sentences=all_chunks,
+                    batch_size=8
+                )
             )
 
+            # Process results
             start_index = 0
             for count in chunk_counts:
                 text_embeddings = []
@@ -316,19 +331,21 @@ class EmbeddingService:
                 start_index += count
 
             return all_embeddings
+            
         except Exception as e:
             logger.error(f"Error generating text embeddings: {str(e)}")
             raise
 
+
     def cleanup_gpu_memory(self):
+        """Clean up GPU memory if available"""
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-
 app = FastAPI(
-    title="Inception v2",
+    title="Inception v0",
     description="Service for generating embeddings from queries and opinions",
-    version="2.0.0"
+    version="0.0.1"
 )
 
 embedding_service: Optional[EmbeddingService] = None

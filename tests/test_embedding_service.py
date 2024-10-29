@@ -6,7 +6,7 @@ GPU memory management, and text processing.
 
 import pytest
 from fastapi.testclient import TestClient
-from embed_endpoint import app, Settings, EmbeddingService
+from inception.inception.embed_endpoint import app, Settings, EmbeddingService
 import torch
 
 # Mark all tests with appropriate categories

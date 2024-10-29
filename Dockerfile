@@ -1,5 +1,5 @@
-# Add multi-stage build
-FROM python:3.8-slim as builder
+# Use NVIDIA CUDA base image
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04 AS builder
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -12,45 +12,49 @@ ENV PYTHONUNBUFFERED=1 \
 # Add Poetry to PATH
 ENV PATH="$POETRY_HOME/bin:$PATH"
 
-# Install system dependencies
+# Install Python and system dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        python3.10 \
+        python3-pip \
+        python3.10-dev \
+        python3.10-venv \
         curl \
         build-essential \
         git \
     && rm -rf /var/lib/apt/lists/*
 
+# Make python3.10 the default python
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+
 # Install Poetry
 RUN curl -sSL https://install.python-poetry.org | python3 - \
     && poetry config virtualenvs.create false
 
-# Set working directory
 WORKDIR /app
 
-# Copy only dependency files first
-COPY pyproject.toml poetry.lock ./
+# Copy all necessary files
+COPY pyproject.toml poetry.lock README.md ./
+
+# Copy source code
+COPY inception/ inception/
 
 # Install dependencies
-RUN poetry install --no-root --no-dev
+RUN poetry install --no-interaction --no-ansi
 
-# Copy the rest of the application
-COPY . .
-
-# Make port 8005 availablea
 EXPOSE 8005
 
-# Set default number of workers
 ENV EMBEDDING_WORKERS=4
 
-# Run the application with Gunicorn
+# Use shell form to allow environment variable expansion
 CMD poetry run gunicorn \
-    --workers=${EMBEDDING_WORKERS} \
+    --workers=$EMBEDDING_WORKERS \
     --worker-class=uvicorn.workers.UvicornWorker \
     --bind=0.0.0.0:8005 \
     --timeout=300 \
     --access-logfile=- \
     --error-logfile=- \
-    embed_endpoint:app
+    inception.embed_endpoint:app
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8005/health || exit 1
