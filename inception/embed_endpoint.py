@@ -79,7 +79,6 @@ class Settings(BaseSettings):
         le=1000,
         description="Maximum words per chunk"
     )
-    max_text_length: int = 100000  # Maximum text length in characters, shall we / can we increase to 1 mln? 
     min_text_length: int = 1  # Minimum text length in characters
     max_batch_size: int = 100  # Maximum number of documents in a batch
     pool_timeout: int = 3600  # Timeout for multi-process pool operations (seconds)
@@ -467,7 +466,7 @@ async def create_text_embedding(request: Request):
         if text_length < settings.min_text_length:
             ERROR_COUNT.labels(endpoint='text', error_type='text_too_short').inc()
             raise HTTPException(
-                status_code=422, 
+                status_code=422,
                 detail=f"Text length ({text_length}) below minimum ({settings.min_text_length})"
             )
 
@@ -516,8 +515,6 @@ async def create_batch_text_embeddings(request: BatchTextRequest):
             text_length = len(doc.text)
             if text_length < settings.min_text_length:
                 raise ValueError(f"Document {doc.id}: Text length ({text_length}) below minimum ({settings.min_text_length})")
-            if text_length > settings.max_text_length:
-                raise ValueError(f"Document {doc.id}: Text length ({text_length}) exceeds maximum ({settings.max_text_length})")
 
         texts = [doc.text for doc in request.documents]
         embeddings_list = await embedding_service.generate_text_embeddings(texts)
