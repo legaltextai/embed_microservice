@@ -8,7 +8,7 @@ The service is optimized to handle two main use cases:
 
 ## Features
 
-- Specialized text embedding generation for legal documents using the `sentence-transformers/all-mpnet-base-v2` model
+- Specialized text embedding generation for legal documents using the `sentence-transformers/multi-qa-mpnet-base-dot-v1
 - Intelligent text chunking optimized for court opinions, based on sentence boundaries
 - Dedicated CPU-based processing for search queries, ensuring fast response times
 - GPU acceleration support for processing lengthy court opinions
