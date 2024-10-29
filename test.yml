@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10"]
+        python-version: ["3.9", "3.10", "3.11"]
       fail-fast: false  # Continue with other versions if one fails
 
     steps:
@@ -60,5 +60,5 @@ jobs:
 
     - name: Test API startup
       run: |
-        poetry run python -c "from
+        poetry run python -c "from inception.embed_endpoint import app; assert app is not None"
 

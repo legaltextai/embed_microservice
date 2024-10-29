@@ -174,7 +174,7 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     embedding: List[float]
 
-#although we are doing preprocessing here, we needto decide if we want to do it here or in the client script that wwill be sending opinions for embedding 
+#although we are doing preprocessing here, we need to decide if we want to do it here or in the client script that will be sending opinions for embedding 
 def clean_text_for_json(text: str) -> str:
     """
     Clean and prepare text for JSON encoding.
