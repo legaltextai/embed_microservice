@@ -124,7 +124,7 @@ cp .env.example .env
 ### Environment Variables
 
 Model Settings:
-- `TRANSFORMER_MODEL_NAME`: Model to use (default: "sentence-transformers/all-mpnet-base-v2")
+- `TRANSFORMER_MODEL_NAME`: Model to use (default: "sentence-transformers/multi-qa-mpnet-base-dot-v1")
 - `MAX_WORDS`: Maximum words per chunk (default: 350)
 
 Server Settings:
