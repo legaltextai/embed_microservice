@@ -138,12 +138,6 @@ class TestInputValidation:
                 "input": {"text": ""},
                 "expected_status": 422,
                 "expected_error": "text length (0) below minimum"
-            },
-            {
-                "name": "text too long",
-                "input": {"text": "a" * (settings.max_text_length + 1)},
-                "expected_status": 422,
-                "expected_error": "text length"
             }
         ]
         
@@ -163,12 +157,6 @@ class TestInputValidation:
                 "input": "",
                 "expected_status": 422,
                 "expected_error": "text length (0) below minimum"
-            },
-            {
-                "name": "text too long",
-                "input": "a" * (settings.max_text_length + 1),
-                "expected_status": 422,
-                "expected_error": "text length"
             },
             {
                 "name": "invalid UTF-8",

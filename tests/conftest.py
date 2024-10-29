@@ -8,9 +8,8 @@ import shutil
 @pytest.fixture
 def test_settings():
     return Settings(
-        transformer_model_name="sentence-transformers/all-mpnet-base-v2",
+        transformer_model_name="sentence-transformers/multi-qa-mpnet-base-dot-v1",
         max_words=350,
-        max_text_length=100000,
         min_text_length=1,
         max_batch_size=100,
         pool_timeout=3600,
@@ -20,7 +19,7 @@ def test_settings():
 
 @pytest.fixture
 def test_model():
-    return SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
+    return SentenceTransformer("sentence-transformers/multi-qa-mpnet-base-dot-v1")
 
 @pytest.fixture
 def test_service(test_model, test_settings):
