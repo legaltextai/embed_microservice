@@ -79,7 +79,6 @@ class Settings(BaseSettings):
         le=1000,
         description="Maximum words per chunk"
     )
-    max_text_length: int = 100000  # Maximum text length in characters
     min_text_length: int = 1  # Minimum text length in characters
     max_batch_size: int = 100  # Maximum number of documents in a batch
     pool_timeout: int = 3600  # Timeout for multi-process pool operations (seconds)
@@ -174,7 +173,7 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     embedding: List[float]
 
-#although we are doing preprocessing here, we needto decide if we want to do it here or in the client script that wwill be sending opinions for embedding 
+#although we are doing preprocessing here, we need to decide if we want to do it here or in the client script that will be sending opinions for embedding 
 def clean_text_for_json(text: str) -> str:
     """
     Clean and prepare text for JSON encoding.
@@ -471,13 +470,6 @@ async def create_text_embedding(request: Request):
                 detail=f"Text length ({text_length}) below minimum ({settings.min_text_length})"
             )
 
-        if text_length > settings.max_text_length:
-            ERROR_COUNT.labels(endpoint='text', error_type='text_too_long').inc()
-            raise HTTPException(
-                status_code=422,
-                detail=f"Text length ({text_length}) exceeds maximum ({settings.max_text_length})"
-            )
-
         result = await embedding_service.generate_text_embeddings([text])
         
         # Clean up GPU memory after processing large texts
@@ -516,8 +508,6 @@ async def create_batch_text_embeddings(request: BatchTextRequest):
             text_length = len(doc.text)
             if text_length < settings.min_text_length:
                 raise ValueError(f"Document {doc.id}: Text length ({text_length}) below minimum ({settings.min_text_length})")
-            if text_length > settings.max_text_length:
-                raise ValueError(f"Document {doc.id}: Text length ({text_length}) exceeds maximum ({settings.max_text_length})")
 
         texts = [doc.text for doc in request.documents]
         embeddings_list = await embedding_service.generate_text_embeddings(texts)
