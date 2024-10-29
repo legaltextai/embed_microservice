@@ -1,5 +1,5 @@
 # Use NVIDIA CUDA base image
-FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04 AS builder
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
