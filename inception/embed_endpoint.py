@@ -79,7 +79,7 @@ class Settings(BaseSettings):
         le=1000,
         description="Maximum words per chunk"
     )
-    max_text_length: int = 100000  # Maximum text length in characters
+    max_text_length: int = 100000  # Maximum text length in characters, shall we / can we increase to 1 mln? 
     min_text_length: int = 1  # Minimum text length in characters
     max_batch_size: int = 100  # Maximum number of documents in a batch
     pool_timeout: int = 3600  # Timeout for multi-process pool operations (seconds)
